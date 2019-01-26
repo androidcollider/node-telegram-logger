@@ -11,15 +11,21 @@
   const isNode = typeof module !== 'undefined' && typeof module.exports !== 'undefined';
 
   //TODO: detect react-native
-
+  require('dotenv').config();
   const winston = require('winston');
   const Transport = require('winston-transport');
   const util = require('util');
   const TelegramLogger = require('../dist/bundle.js');
+  var URL = require('url');
+  var Agent = require('socks5-https-client/lib/Agent');
 
-
-
-
+ const agentOptions = {
+      socksHost:  process.env.Socks5Host,
+      socksPort: process.env.Socks5Port,
+      socksUsername: process.env.Socks5User,
+      socksPassword: process.env.Socks5Password
+  } 
+  const agent = new Agent(agentOptions);
   //
   // Inherit from `winston-transport` so you can take advantage
   // of the base functionality and `.exceptions.handle()`.
@@ -84,21 +90,32 @@
           }
           
       }
-      nodeRequest(url){
-          return https.get(url,(res)=> {
-              const { statusCode } = res;
-              if(statusCode !== 200){
-                  let data; 
-                  res.on('data',(chunk)=>{
+      nodeRequest(url) {
+          const myURL = URL.parse(url);
+
+          const options = {
+              hostname: myURL.host,
+              path: myURL.path,
+              rejectUnauthorized: true,
+              agent: agent
+          };
+          
+          return https.get(options, (res) => {
+              const {
+                  statusCode
+              } = res;
+              if (statusCode !== 200) {
+                  let data;
+                  res.on('data', (chunk) => {
                       data += chunk;
                   });
-                  res.on('end',()=>{
+                  res.on('end', () => {
                       console.log(data);
                   });
-              } 
-          }).on('error',(e)=>{
-              console.log(e,'got an error in https request');
-          })
+              }
+          }).on('error', (e) => {
+              console.log(e, 'got an error in https request');
+          });
       }
       sendMessage(message,level='RANDOM'){
           let emoji = this.emojiMap()[level];
